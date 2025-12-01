@@ -5,7 +5,7 @@ import { db } from "../db";
 const router = Router();
 
 router.get("/", async (_req, res) => {
-  const [rows] = await db.query("SELECT * FROM routes LIMIT 200");
+  const [rows] = await db.query("SELECT * FROM routes ");
   res.json(rows);
 });
 
