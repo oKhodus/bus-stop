@@ -1,0 +1,29 @@
+# Node modules
+/node_modules
+/.pnp
+.pnp.js
+
+# TypeScript
+/dist
+/build
+/**/*.tsbuildinfo
+
+# Environment variables
+.env
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+gtfs_files
+
+# IDE
+.vscode/
+.idea/
+.env
