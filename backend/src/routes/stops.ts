@@ -31,6 +31,54 @@ router.get("/regions", async (req, res) => {
   }
 });
 
+// Cities only (linn)
+router.get("/regions/cities", async (req, res) => {
+  try {
+    const [rows] = await db.query<RowDataPacket[]>(
+      `
+      SELECT DISTINCT
+        CASE
+          -- All Tallinn districts collapse to 'Tallinn linn'
+          WHEN stop_area LIKE '%-Tallinn' OR stop_area LIKE 'Tallinn' OR authority LIKE 'Tallinna%' THEN 'Tallinn linn'
+          -- Other cities ending with 'linn'
+          WHEN stop_area LIKE '% linn' THEN stop_area
+          ELSE NULL
+        END AS stop_area
+      FROM stops
+      ORDER BY stop_area
+      `
+    );
+
+    // Remove any nulls
+    const filtered = rows.filter(r => r.stop_area);
+    res.json(filtered);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "DB error" });
+  }
+});
+
+router.get("/regions/others", async (req, res) => {
+  try {
+    const [rows] = await db.query<RowDataPacket[]>(
+      `
+      SELECT DISTINCT stop_area
+      FROM stops
+      WHERE stop_area NOT LIKE '% linn'
+        AND stop_area IS NOT NULL
+        AND stop_area != ''
+      ORDER BY stop_area
+      `
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "DB error" });
+  }
+});
+
+
+
 router.get("/:stopName/buses", async (req, res) => {
     const stopName = req.params.stopName;
     try {

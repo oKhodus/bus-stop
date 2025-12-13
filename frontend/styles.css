@@ -1,6 +1,33 @@
 body {
-    background-color: #f8f9fa;
+    background-color: #92bdff;
+    color: #000000;
+    text-align: center;
 }
+
+.form-control{
+    text-align: center;
+}
+
 .list-group-item {
     cursor: pointer;
+}
+
+.bus-btn {
+    min-width: 60px;
+    margin: 5px;
+}
+
+.bus-btn:hover {
+    transform: scale(1.05);
+    transition: transform 0.2s;
+}
+
+.d-flex.flex-wrap {
+    justify-content: center;
+}
+
+.footer {
+    margin-top: 2rem;
+    padding: 1rem;
+    text-align: center;
 }
