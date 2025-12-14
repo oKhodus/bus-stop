@@ -5,10 +5,20 @@ import cors from "cors";
 import stopsRouter from "./routes/stops";
 import routesRouter from "./routes/routes";
 import arrivalsRouter from "./routes/arrivals";
+import { db } from "./db";
 
 // const __filename = fileURLToPath(import.meta.url);
 // const __dirname = path.dirname(__filename);
 console.log(__dirname); 
+
+(async () => {
+  try {
+    await db.query("SELECT 1");
+    console.log("✅ Database connected successfully");
+  } catch (err) {
+    console.error("❌ DB connection failed:", err);
+  }
+})();
 
 const app = express();
 app.use(cors());
