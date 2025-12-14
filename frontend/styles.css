@@ -1,33 +1,70 @@
 body {
-    background-color: #92bdff;
-    color: #000000;
+    background-color: #c3dbff;
+    color: #000;
+    text-align: center;
+    font-family: Arial, sans-serif;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.header h1 {
     text-align: center;
 }
 
-.form-control{
-    text-align: center;
+.gifs {
+    width: 50px;
+    margin-left: 10px;
 }
 
-.list-group-item {
-    cursor: pointer;
+.form-control {
+    max-width: 400px;
+    margin: 10px auto;
+    text-align: center;
 }
 
 .bus-btn {
-    min-width: 60px;
-    margin: 5px;
-}
-
-.bus-btn:hover {
-    transform: scale(1.05);
+    flex: 0 0 auto;
+    min-width: 50px;
+    max-width: 70px;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.9rem;
+    white-space: nowrap;
     transition: transform 0.2s;
 }
 
-.d-flex.flex-wrap {
-    justify-content: center;
+.bus-btn:hover {
+    transform: scale(1.1);
+}
+
+#results {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.bus-buttons-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center; /* центрируем весь ряд */
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.arrival-card {
+    background: #fff;
+    border-radius: 5px;
+    padding: 10px;
+    box-shadow: 0 0 5px rgba(0,0,0,0.2);
+    text-align: center;
 }
 
 .footer {
     margin-top: 2rem;
     padding: 1rem;
     text-align: center;
+    font-size: 0.9rem;
 }

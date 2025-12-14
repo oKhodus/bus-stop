@@ -4,61 +4,65 @@ import { RowDataPacket } from "mysql2";
 
 const router = Router();
 
+
 router.get("/", async (req, res) => {
-    const query = req.query.q as string | undefined;
-    if (query) {
-        const [rows] = await db.query(
-            "SELECT * FROM stops WHERE stop_area LIKE ?",
-            [`%${query}%`]
-        );
-        return res.json(rows);
+    const region = req.query.region as string | undefined;
+    if (!region) return res.json([]);
+
+    try {
+        let sql = `
+            SELECT stop_id, stop_name, stop_desc
+            FROM stops
+            WHERE stop_area = ?
+            ORDER BY stop_name, stop_desc
+        `;
+        const params: any[] = [region];
+
+        if (region.toLowerCase() === "tallinn linn") {
+            sql = `
+                SELECT stop_id, stop_name, stop_desc
+                FROM stops
+                WHERE stop_area LIKE '%Tallinn%' OR authority LIKE 'Tallinna%'
+                ORDER BY stop_name, stop_desc
+            `;
+            params.length = 0;
+        }
+
+        const [rows] = await db.query<RowDataPacket[]>(sql, params);
+        res.json(rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json([]);
     }
-    const [rows] = await db.query("SELECT * FROM stops LIMIT 100");
-    res.json(rows);
 });
 
-router.get("/regions", async (req, res) => {
-  try {
-    const [rows] = await db.query(
-      "SELECT DISTINCT stop_area FROM stops ORDER BY stop_area"
-    );
 
-    // const regions = rows.map((r: any) => r.stop_area);
-    res.json(rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "DB error" });
-  }
-});
+/* ================= REGIONS ================= */
 
-// Cities only (linn)
-router.get("/regions/cities", async (req, res) => {
+router.get("/regions/cities", async (_req, res) => {
   try {
     const [rows] = await db.query<RowDataPacket[]>(
       `
       SELECT DISTINCT
         CASE
-          -- All Tallinn districts collapse to 'Tallinn linn'
-          WHEN stop_area LIKE '%-Tallinn' OR stop_area LIKE 'Tallinn' OR authority LIKE 'Tallinna%' THEN 'Tallinn linn'
-          -- Other cities ending with 'linn'
-          WHEN stop_area LIKE '% linn' THEN stop_area
+          WHEN stop_area LIKE '%-Tallinn'
+            OR stop_area = 'Tallinn'
+            OR authority LIKE 'Tallinna%'
+          THEN 'Tallinn linn'
+          WHEN stop_area LIKE '% linn'
+          THEN stop_area
           ELSE NULL
         END AS stop_area
       FROM stops
-      ORDER BY stop_area
       `
     );
-
-    // Remove any nulls
-    const filtered = rows.filter(r => r.stop_area);
-    res.json(filtered);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "DB error" });
+    res.json(rows.filter(r => r.stop_area));
+  } catch {
+    res.status(500).json([]);
   }
 });
 
-router.get("/regions/others", async (req, res) => {
+router.get("/regions/others", async (_req, res) => {
   try {
     const [rows] = await db.query<RowDataPacket[]>(
       `
@@ -71,62 +75,166 @@ router.get("/regions/others", async (req, res) => {
       `
     );
     res.json(rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "DB error" });
+  } catch {
+    res.status(500).json([]);
   }
 });
 
-
-
-router.get("/:stopName/buses", async (req, res) => {
-    const stopName = req.params.stopName;
-    try {
-        const [stopsRes]: any = await db.query("SELECT stop_id FROM stops WHERE stop_name = ?", [stopName]);
-        if (!stopsRes.length) return res.json([]);
-        const stopId = stopsRes[0].stop_id;
-
-        const [stopTimesRes]: any = await db.query("SELECT DISTINCT trip_id FROM stop_times WHERE stop_id = ?", [stopId]);
-        if (!stopTimesRes.length) return res.json([]);
-        const tripIds = stopTimesRes.map((row: any) => row.trip_id);
-
-
-        const [tripsRes]: any = await db.query(
-            `SELECT DISTINCT route_id FROM trips WHERE trip_id IN (${tripIds.map(() => "?").join(",")})`,
-            tripIds
-        );
-        if (!tripsRes.length) return res.json([]);
-        const routeIds = tripsRes.map((row: any) => row.route_id);
-
-        const [routesRes]: any = await db.query(
-            `SELECT route_short_name FROM routes WHERE route_id IN (${routeIds.map(() => "?").join(",")}) ORDER BY route_short_name`,
-            routeIds
-        );
-
-        const busNumbers = routesRes.map((row: any) => row.route_short_name);
-        res.json(busNumbers);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Something went wrong" });
-    }
-});
+/* ================= NEAREST ================= */
 
 router.get("/nearest", async (req, res) => {
-  const lat = parseFloat(req.query.lat as string);
-  const lon = parseFloat(req.query.lon as string);
-
-  if (isNaN(lat) || isNaN(lon)) return res.status(400).json({ error: "Invalid coordinates" });
+  const lat = Number(req.query.lat);
+  const lon = Number(req.query.lon);
+  if (isNaN(lat) || isNaN(lon)) return res.status(400).json({});
 
   const [rows] = await db.query<RowDataPacket[]>(
-    `SELECT *, 
-      SQRT(POW(stop_lat - ?, 2) + POW(stop_lon - ?, 2)) AS distance
-     FROM stops
-     ORDER BY distance
-     LIMIT 1`,
+    `
+    SELECT *,
+      SQRT(POW(stop_lat - ?, 2) + POW(stop_lon - ?, 2)) AS dist
+    FROM stops
+    ORDER BY dist
+    LIMIT 1
+    `,
     [lat, lon]
   );
 
   res.json(rows[0]);
 });
+
+/* ================= BUSES ================= */
+
+router.get("/:stopName/buses", async (req, res) => {
+  try {
+    const [stopRows] = await db.query<RowDataPacket[]>(
+      "SELECT stop_id FROM stops WHERE LOWER(TRIM(stop_name)) = LOWER(TRIM(?))",
+      [req.params.stopName]
+    );
+    if (!stopRows.length) return res.json([]);
+
+    const stopId = stopRows[0].stop_id;
+
+    const [rows] = await db.query<RowDataPacket[]>(
+      `
+      SELECT DISTINCT r.route_short_name
+      FROM stop_times st
+      JOIN trips t ON st.trip_id = t.trip_id
+      JOIN routes r ON t.route_id = r.route_id
+      WHERE st.stop_id = ?
+      ORDER BY r.route_short_name
+      `,
+      [stopId]
+    );
+
+    res.json(rows.map(r => r.route_short_name));
+  } catch {
+    res.status(500).json([]);
+  }
+});
+
+router.get("/:stopId/busesWithDirectionById", async (req, res) => {
+  const stopId = Number(req.params.stopId);
+  if (!stopId) return res.json([]);
+
+  try {
+    const [rows] = await db.query<RowDataPacket[]>(
+      `
+      SELECT r.route_short_name, t.trip_headsign
+      FROM stop_times st
+      JOIN trips t ON st.trip_id = t.trip_id
+      JOIN routes r ON t.route_id = r.route_id
+      WHERE st.stop_id = ?
+      ORDER BY r.route_short_name
+      `,
+      [stopId]
+    );
+
+    res.json(rows.map(r => ({
+      route: r.route_short_name,
+      direction: r.trip_headsign || "unknown"
+    })));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json([]);
+  }
+});
+
+
+
+
+/* ================= ARRIVALS ================= */
+
+router.get("/:stopName/arrivals", async (req, res) => {
+  const stopName = req.params.stopName;
+  const route = req.query.route as string | undefined;
+
+  try {
+    const [stopRows] = await db.query<RowDataPacket[]>(
+      "SELECT stop_id FROM stops WHERE LOWER(TRIM(stop_name)) = LOWER(TRIM(?))",
+      [stopName]
+    );
+    if (!stopRows.length) return res.json([]);
+
+    const stopId = stopRows[0].stop_id;
+
+    if (route) {
+      const [rows] = await db.query<RowDataPacket[]>(
+        `
+        SELECT st.arrival_time
+        FROM stop_times st
+        JOIN trips t ON st.trip_id = t.trip_id
+        JOIN routes r ON t.route_id = r.route_id
+        WHERE st.stop_id = ?
+          AND r.route_short_name = ?
+          AND st.arrival_time >= CURTIME()
+        ORDER BY st.arrival_time
+        LIMIT 5
+        `,
+        [stopId, route]
+      );
+      const arrivals = (rows as any[]).map(r => ({ arrival_time: r.arrival_time }));
+      return res.json(arrivals);
+    }
+
+    const [buses] = await db.query<RowDataPacket[]>(
+      `
+      SELECT DISTINCT r.route_short_name
+      FROM stop_times st
+      JOIN trips t ON st.trip_id = t.trip_id
+      JOIN routes r ON t.route_id = r.route_id
+      WHERE st.stop_id = ?
+      `,
+      [stopId]
+    );
+
+    const arrivalsResult: Record<string, { arrival_time: string }[]> = {};
+
+    for (const bus of buses.map(b => b.route_short_name)) {
+      const [rows] = await db.query<RowDataPacket[]>(
+        `
+        SELECT st.arrival_time
+        FROM stop_times st
+        JOIN trips t ON st.trip_id = t.trip_id
+        JOIN routes r ON t.route_id = r.route_id
+        WHERE st.stop_id = ?
+          AND r.route_short_name = ?
+          AND st.arrival_time >= CURTIME()
+        ORDER BY st.arrival_time
+        LIMIT 5
+        `,
+        [stopId, bus]
+      );
+      arrivalsResult[bus] = (rows as any[]).map(r => ({ arrival_time: r.arrival_time }));
+    }
+
+    res.json(arrivalsResult);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json([]);
+  }
+});
+
+
+
 
 export default router;

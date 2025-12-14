@@ -1,13 +1,3 @@
-// app.use(express.json());
-
-// app.use("/stops", stopsRouter);
-// app.use("/routes", routesRouter);
-
-// app.listen(3000, () => {
-//   console.log("Server running on http://localhost:3000");
-// });
-
-
 import express from "express";
 import path from "path";
 import cors from "cors";
