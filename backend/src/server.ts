@@ -1,9 +1,14 @@
 import express from "express";
 import path from "path";
 import cors from "cors";
+// import { fileURLToPath } from 'url';
 import stopsRouter from "./routes/stops";
 import routesRouter from "./routes/routes";
 import arrivalsRouter from "./routes/arrivals";
+
+// const __filename = fileURLToPath(import.meta.url);
+// const __dirname = path.dirname(__filename);
+console.log(__dirname); 
 
 const app = express();
 app.use(cors());
@@ -31,5 +36,10 @@ app.use((req, res, next) => {
 
   res.sendFile(path.join(frontendPath, "index.html"));
 });
+// local
+// app.listen(3000, () => console.log("Server running on http://localhost:3000"));
+const PORT = Number(process.env.PORT) || 3000;
 
-app.listen(3000, () => console.log("Server running on http://localhost:3000"));
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on port ${PORT}`);
+});
